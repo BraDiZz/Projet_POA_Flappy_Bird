@@ -1,75 +1,28 @@
 import pygame
 import sys
 import random
+import time
+from collections import namedtuple
 
-pygame.init()
-
-
-pause = False
-pause_button=pygame.image.load("button_pause.png")
 clock = pygame.time.Clock()
-
-# Constantes
-WIDTH, HEIGHT = 800, 800 # Taille fenêtre
-WHITE = (255, 255, 255)
-GROUND_COLOR = (255, 125 , 0)
-GROUND_HEIGHT = 30 # Taille sol
-MIN = HEIGHT-HEIGHT/2+100 # hauteur minimal du trou
-DISTANCE = 210 # Distance entre 2 tuyaux
-PAUSE_BUTTON_SIZE = 64
-BIRD_SIZE = 64
-BORDER = 10
-
-# Création de la fenêtre
+WIDTH, HEIGHT = 1200,800
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Floppy cat")
+WHITE = (255,255,255)
+PAUSE_BUTTON_SIZE = 64
+BORDER = 10
+MIN_HOLE_POSITION = HEIGHT-HEIGHT/2+100 # hauteur minimal du trou
 
-class Pipe:
-    def __init__(self, x):
-    	self.x = x
-    	self.height = 0
-    	self.width = 40 #épaisseur du tuyau
-    	self.gap = 150 #écart entre tuyau du haut et du bas
-    	self.top_height = random.randint(50, MIN) #calcule la hauteur minimum des tuyaux en fonction de la taille de la fenêtre
-    	self.bottom_height = HEIGHT - self.top_height - self.gap #calcule la hauteur du tuyau du bas
+t_const = namedtuple('TUYAUX', ['GAP', 'WIDTH','DISTANCE','COLOR','MIN_HEIGHT','SPEED']) # Dictionnaire de constante pour les tuyaux, accessible via le nom des champs
+TUYAUX_CONST = t_const(250, 80, 400, (0, 255, 0), 50, 6) # Ecart entre tuyau du haut et du bas, Largeur d'un tuyau, Distance entre 2 tuyaux
+b_const = namedtuple('BIRDS', ['INIT_Y','GRAVITY','SPEED','IMG_NEUTRAL', 'IMG_RISE','IMG_FALL']) # Dictionnaire de constante pour les oiseaux, accessible via le nom des champs
+BIRDS_CONST = b_const(HEIGHT // 2, 0.5, -9, pygame.image.load("bird.png"), pygame.image.load("bird_rise.png"), pygame.image.load("bird_fall.png")) 
 
-    def draw(self): #dessine la partie haute et basse du tuyau
-    	pygame.draw.rect(screen, (0, 255, 0), (self.x, 0, self.width, self.top_height))
-    	pygame.draw.rect(screen, (0, 255, 0), (self.x, HEIGHT - self.bottom_height, self.width, self.bottom_height))
+bg = pygame.image.load("background.jpg")
+pause_button=pygame.image.load("button_pause.png")
+bg_list = [[bg,0],[bg,WIDTH-10]]
 
-    def update(self): # déplace les tuyaux
-    	self.x -= 2
-
-class Bird:
-    def __init__(self,x):
-        self.x = x
-        self.y = HEIGHT // 2
-        self.speed = 0
-        self.gravity = 0.5
-        self.appa=pygame.image.load("bird.png")
-        self.bird_rise=pygame.image.load("bird_rise.png")
-        self.bird_fall=pygame.image.load("bird_fall.png")
-        self.bird_current=self.appa
-
-    def flap(self):
-        self.speed = -9
-
-    def update(self):
-        self.speed += self.gravity
-        self.y += self.speed
-        if self.speed < -5:
-            self.bird_current=self.bird_rise
-        elif self.speed > 5 :
-            self.bird_current=self.bird_fall
-        else :
-            self.bird_current=self.appa
-
-    def draw(self):
-        screen.blit(self.bird_current,(self.x, int(self.y)))
-
-birds = [Bird(100),Bird(200)]
-birds_event = [pygame.K_SPACE,pygame.K_p]
-pipes = [Pipe(DISTANCE*i+DISTANCE) for i in range(4)]
+pause = False
 
 def switchPause(event):
 	if event.type == pygame.MOUSEBUTTONDOWN:
@@ -80,8 +33,49 @@ def fermeture(event):
 	if event.type == pygame.QUIT:
 		pygame.quit()
 		sys.exit()
-		
+
+class Pipe:
+    def __init__(self, x):
+    	self.x = x
+    	self.top_size = random.randint(TUYAUX_CONST.MIN_HEIGHT, HEIGHT - TUYAUX_CONST.MIN_HEIGHT - TUYAUX_CONST.GAP) # Calcule la hauteur minimum des tuyaux en fonction de la taille de la fenêtre
+
+    def draw(self): # Dessine la partie haute et basse du tuyau
+    	pygame.draw.rect(screen, TUYAUX_CONST.COLOR, (self.x, 0, TUYAUX_CONST.WIDTH, self.top_size))
+    	pygame.draw.rect(screen, TUYAUX_CONST.COLOR, (self.x, self.top_size + TUYAUX_CONST.GAP, TUYAUX_CONST.WIDTH, HEIGHT - self.top_size - TUYAUX_CONST.GAP))
+
+    def update(self): # Déplace les tuyaux
+    	self.x -= TUYAUX_CONST.SPEED
+
+class Bird:
+    def __init__(self,x):
+        self.x = x
+        self.y = BIRDS_CONST.INIT_Y
+        self.speed = 0
+        self.gravity = BIRDS_CONST.GRAVITY
+        self.bird_current=BIRDS_CONST.IMG_NEUTRAL
+
+    def flap(self):
+        self.speed = BIRDS_CONST.SPEED
+
+    def update(self):
+        self.speed += BIRDS_CONST.GRAVITY
+        self.y += self.speed
+        if self.speed < -5:
+            self.bird_current=BIRDS_CONST.IMG_RISE
+        elif self.speed > 5 :
+            self.bird_current=BIRDS_CONST.IMG_FALL
+        else :
+            self.bird_current=BIRDS_CONST.IMG_NEUTRAL
+
+    def draw(self):
+        screen.blit(self.bird_current,(self.x, int(self.y)))
+
+birds = [Bird(100),Bird(200)]
+birds_event = [pygame.K_SPACE,pygame.K_p]
+pipes = [Pipe(TUYAUX_CONST.DISTANCE*i+WIDTH) for i in range(4)] # Les premiers tuyaux arrivent de l'extérieur de la fenêtre
+
 while True:
+	screen.fill(WHITE)
 	if pause :
 		for event in pygame.event.get():
 			if switchPause(event):
@@ -94,34 +88,35 @@ while True:
 	
         #gestion fermeture fenetre
 		fermeture(event)
-        # Gestion du saut
 		if event.type == pygame.KEYDOWN:
 			for i in range(len(birds_event)):
 				if event.key == birds_event[i]:
 					birds[i].flap()
-	screen.fill(WHITE)
-	for i in range(len(birds)):
-		birds[i].update()
-		birds[i].draw()
-    
-    # retirer les tuyaux et en ajouter de nouveaux
-	if pipes[0].x < -pipes[0].width:
-		pipes.pop(0)
+	
+	for i in range(len(bg_list)): # Le background se déplace vers la gauche
+		bg_list[i][1] -= 4
+		screen.blit(bg_list[i][0],(bg_list[i][1],0))
+	if bg_list[0][1] <= -WIDTH:
+		bg_list.reverse()
+		bg_list[1][1] = bg_list[0][1]+WIDTH
 		
-	if pipes[3].x == WIDTH-DISTANCE :
-		pipes.append(Pipe(WIDTH))
-
-    	# dessiner les tuyaux
+	# Dessiner les tuyaux
 	for pipe in pipes:
 		pipe.update()
 		pipe.draw()
-
-    # Dessine le sol 
-	pygame.draw.rect(screen, GROUND_COLOR, (0, HEIGHT-GROUND_HEIGHT, WIDTH, GROUND_HEIGHT))
-	screen.blit(pause_button,(WIDTH-PAUSE_BUTTON_SIZE - BORDER,BORDER))
 	
-	#Actualise la fenêtre
+	# Retirer les tuyaux et en ajouter de nouveaux
+	if pipes[0].x < -TUYAUX_CONST.WIDTH:
+		pipes.pop(0)
+		
+	if pipes[len(pipes)-1].x <= WIDTH-TUYAUX_CONST.DISTANCE :
+		pipes.append(Pipe(WIDTH))
+		
+	# Dessiner les oiseaux
+	for i in range(len(birds)):
+		birds[i].update()
+		birds[i].draw()
+	
+	screen.blit(pause_button,(WIDTH-PAUSE_BUTTON_SIZE - BORDER,BORDER))
 	pygame.display.update()
 	clock.tick(60)
-    
-    
