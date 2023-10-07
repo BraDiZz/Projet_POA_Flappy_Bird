@@ -3,6 +3,7 @@ import sys
 import random
 import time
 from collections import namedtuple
+import agent
 
 pygame.init()
 
@@ -89,9 +90,14 @@ class Bird:
     def draw(self):
         screen.blit(self.bird_current,(self.x, int(self.y)))
 
-birds = [Bird(100),Bird(200)]
+birds = [Bird(100),Bird(200),Bird(300)]
 birds_event = [pygame.K_SPACE,pygame.K_p]
 pipes = [Pipe(TUYAUX_CONST.DISTANCE*i+WIDTH) for i in range(4)] # Les premiers tuyaux arrivent de l'extérieur de la fenêtre
+
+
+indice_prochain_tuyau = 0 # Prochain tuyau rencontré par l'agent (initialement à 0)
+agent = agent.Agent(1, BIRDS_CONST,pipes[indice_prochain_tuyau].top_tuyau.height, TUYAUX_CONST.GAP, 10) # # L'oiseau d'indice 1 dans le tableau de Bird est celui contrôlé par l'agent
+
 
 perdu = False
 
@@ -118,9 +124,20 @@ while True:
 		fermeture(event)
 		if event.type == pygame.KEYDOWN:
 			for i in range(len(birds_event)):
-				if event.key == birds_event[i]:
-					birds[i].flap()
-
+				if event.key == birds_event[i]: # Tous les event concernent des oiseaux qui ne sont pas controlés par l'agent
+					if i < agent.indice:
+						birds[i].flap() # L'event d'indice i correspond à l'oiseau d'indice 1
+					else:
+						birds[i+1].flap()# On décale de 1 pour avoir le bon oiseau
+	
+	if birds[agent.indice].x > pipes[indice_prochain_tuyau].top_tuyau.x + TUYAUX_CONST.WIDTH : # L'oiseau a passé un tuyau
+		indice_prochain_tuyau+=1
+					
+	if agent.update(birds[agent.indice].y,pipes[indice_prochain_tuyau].top_tuyau.height):
+		birds[agent.indice].flap()
+	
+	
+	
 	screen.fill(WHITE)
 	for i in range(len(bg_list)): # Le background se déplace vers la gauche
 		bg_list[i][1] -= 4
@@ -136,6 +153,7 @@ while True:
 	
 	# Retirer les tuyaux et en ajouter de nouveaux
 	if pipes[0].top_tuyau.x < -TUYAUX_CONST.WIDTH:
+		indice_prochain_tuyau -= 1
 		pipes.pop(0)
 		
 	if pipes[len(pipes)-1].top_tuyau.x <= WIDTH-TUYAUX_CONST.DISTANCE :
@@ -146,6 +164,7 @@ while True:
 		birds[i].update()
 		pygame.draw.rect(screen, (240,20,20), birds[i].rect_bird)
 		birds[i].draw()
+		
 		for pipe in pipes :
 			if pygame.Rect.colliderect(birds[i].rect_bird,pipe.top_tuyau) or pygame.Rect.colliderect(birds[i].rect_bird,pipe.bottom_tuyau) :
 				perdu = True
