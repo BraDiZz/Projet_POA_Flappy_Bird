@@ -23,8 +23,8 @@ MIN_HOLE_POSITION = HEIGHT-HEIGHT/2+100 # hauteur minimal du trou
 
 t_const = namedtuple('TUYAUX', ['GAP', 'WIDTH','DISTANCE','COLOR','MIN_HEIGHT','SPEED']) # Dictionnaire de constante pour les tuyaux, accessible via le nom des champs
 TUYAUX_CONST = t_const(250, 80, 400, (0, 255, 0), 50, 6) # Ecart entre tuyau du haut et du bas, Largeur d'un tuyau, Distance entre 2 tuyaux
-b_const = namedtuple('BIRDS', ['INIT_Y','GRAVITY','SPEED','IMG_NEUTRAL', 'IMG_RISE','IMG_FALL','SIZE']) # Dictionnaire de constante pour les oiseaux, accessible via le nom des champs
-BIRDS_CONST = b_const(HEIGHT // 2, 0.5, -9, pygame.image.load("bird.png"), pygame.image.load("bird_rise.png"), pygame.image.load("bird_fall.png"),64) 
+b_const = namedtuple('BIRDS', ['INIT_Y','GRAVITY','SPEED','IMG_NEUTRAL', 'IMG_RISE','IMG_FALL','SIZE','COLORS']) # Dictionnaire de constante pour les oiseaux, accessible via le nom des champs
+BIRDS_CONST = b_const(HEIGHT // 2, 0.8, -14, pygame.image.load("bird.png"), pygame.image.load("bird_rise.png"), pygame.image.load("bird_fall.png"),64,[(255,10,10),(10,255,10),(10,10,255)]) 
 
 bg = pygame.image.load("background.jpg")
 pause_button=pygame.image.load("button_pause.png")
@@ -65,13 +65,25 @@ class Pipe:
     	self.bottom_tuyau.x -= TUYAUX_CONST.SPEED
 
 class Bird:
-    def __init__(self,x):
+    def __init__(self,x,ind_color):
         self.x = x
         self.y = BIRDS_CONST.INIT_Y
         self.speed = 0
         self.gravity = BIRDS_CONST.GRAVITY
         self.rect_bird = pygame.Rect((self.x,self.y),((BIRDS_CONST.SIZE,BIRDS_CONST.SIZE))) # Crée un rectangle pour la collision de l'oiseau
-        self.bird_current=BIRDS_CONST.IMG_NEUTRAL
+        
+        self.bird_neutre = self.changeColor(BIRDS_CONST.IMG_NEUTRAL.copy(),BIRDS_CONST.COLORS[ind_color])
+        self.bird_vol = self.changeColor(BIRDS_CONST.IMG_RISE.copy(),BIRDS_CONST.COLORS[ind_color])
+        self.bird_tombe = self.changeColor(BIRDS_CONST.IMG_FALL.copy(),BIRDS_CONST.COLORS[ind_color])
+        self.bird_current=self.bird_neutre
+    
+    def changeColor(self,img_bird, new_color):
+    	width_img, height_img = img_bird.get_size()
+    	for x in range(width_img):
+    		for y in range(height_img):
+    			if img_bird.get_at((x,y))[1] > 120: # L'image n'est pas uniforme, donc pour savoir si un pixel est vert on regarde si vert > 120
+    				img_bird.set_at((x,y), new_color)
+    	return img_bird
 
     def flap(self):
         self.speed = BIRDS_CONST.SPEED
@@ -81,22 +93,22 @@ class Bird:
         self.y += self.speed
         self.rect_bird.y = self.y # Update rect position
         if self.speed < -5:
-            self.bird_current=BIRDS_CONST.IMG_RISE
+            self.bird_current=self.bird_vol
         elif self.speed > 5 :
-            self.bird_current=BIRDS_CONST.IMG_FALL
+            self.bird_current=self.bird_tombe
         else :
-            self.bird_current=BIRDS_CONST.IMG_NEUTRAL
+            self.bird_current=self.bird_neutre
 
     def draw(self):
         screen.blit(self.bird_current,(self.x, int(self.y)))
 
-birds = [Bird(100),Bird(200),Bird(300)]
+birds = [Bird(100,0),Bird(200,1)]#,Bird(300,2)]
 birds_event = [pygame.K_SPACE,pygame.K_p]
 pipes = [Pipe(TUYAUX_CONST.DISTANCE*i+WIDTH) for i in range(4)] # Les premiers tuyaux arrivent de l'extérieur de la fenêtre
 
 
 indice_prochain_tuyau = 0 # Prochain tuyau rencontré par l'agent (initialement à 0)
-agent = agent.Agent(1, BIRDS_CONST,pipes[indice_prochain_tuyau].top_tuyau.height, TUYAUX_CONST.GAP, 10) # # L'oiseau d'indice 1 dans le tableau de Bird est celui contrôlé par l'agent
+agent = agent.Agent(0, BIRDS_CONST,pipes[indice_prochain_tuyau].top_tuyau.height, TUYAUX_CONST.GAP, 15) # # L'oiseau d'indice 1 dans le tableau de Bird est celui contrôlé par l'agent
 
 
 perdu = False
@@ -162,7 +174,7 @@ while True:
 	# Dessiner les oiseaux
 	for i in range(len(birds)):
 		birds[i].update()
-		pygame.draw.rect(screen, (240,20,20), birds[i].rect_bird)
+		#pygame.draw.rect(screen, (240,20,20), birds[i].rect_bird)
 		birds[i].draw()
 		
 		for pipe in pipes :
